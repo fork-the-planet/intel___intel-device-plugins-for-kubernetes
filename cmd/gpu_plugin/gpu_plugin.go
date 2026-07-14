@@ -85,6 +85,7 @@ type cliOptions struct {
 	bypathMount               string
 	monitoringMode            string
 	xpumdEndpoint             string
+	xpumdUnhealthySeverity    string
 	sharedDevNum              int
 	globalTempLimit           int
 	memoryTempLimit           int
@@ -832,6 +833,12 @@ func checkArgs(opts cliOptions) error {
 		}
 	}
 
+	switch opts.xpumdUnhealthySeverity {
+	case "failed", "critical", "warning":
+	default:
+		return newArgError("invalid value for xpumd-unhealthy-severity, valid values: failed, critical, warning")
+	}
+
 	return nil
 }
 
@@ -853,6 +860,7 @@ func main() {
 	flag.IntVar(&opts.gpuTempLimit, "gpu-temp-limit", defaultTempLimit, "GPU temperature limit at which device is marked unhealthy. Use with health-managmement.")
 	flag.IntVar(&opts.memoryTempLimit, "memory-temp-limit", defaultTempLimit, "Memory temperature limit at which device is marked unhealthy. Use with health-managmement.")
 	flag.StringVar(&opts.preferredAllocationPolicy, "allocation-policy", "none", "modes of allocating GPU devices: balanced, packed and none")
+	flag.StringVar(&opts.xpumdUnhealthySeverity, "xpumd-unhealthy-severity", "critical", "severity level for xpumd unhealthy state: failed, critical, warning")
 	flag.StringVar(&opts.allowIDs, "allow-ids", "", "comma-separated list of device IDs to allow (e.g. 0x49c5,0x49c6)")
 	flag.StringVar(&opts.denyIDs, "deny-ids", "", "comma-separated list of device IDs to deny (e.g. 0x49c5,0x49c6)")
 
@@ -892,9 +900,9 @@ func setupXpumdService(plugin *devicePlugin) {
 		return
 	}
 
-	klog.Info("xpumd health source requested: ", plugin.options.xpumdEndpoint)
+	klog.Info("xpumd health source requested: ", plugin.options.xpumdEndpoint, " with severity: ", plugin.options.xpumdUnhealthySeverity)
 
-	plugin.xpumdService = xpumdservice.NewXpumd(plugin.options.xpumdEndpoint)
+	plugin.xpumdService = xpumdservice.NewXpumd(plugin.options.xpumdEndpoint, plugin.options.xpumdUnhealthySeverity)
 
 	go plugin.xpumdService.Run(context.Background())
 }

@@ -125,7 +125,7 @@ func TestGetDeviceHealth_Healthy(t *testing.T) {
 
 	sockPath := startMockServer(t, []*xpumapi.DeviceHealthResponse{resp})
 
-	svc := NewXpumd(sockPath)
+	svc := NewXpumd(sockPath, "critical")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -154,7 +154,7 @@ func TestGetDeviceHealth_Unhealthy(t *testing.T) {
 
 	sockPath := startMockServer(t, []*xpumapi.DeviceHealthResponse{resp})
 
-	svc := NewXpumd(sockPath)
+	svc := NewXpumd(sockPath, "warning")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -178,7 +178,7 @@ func TestGetDeviceHealth_Unhealthy(t *testing.T) {
 func TestGetDeviceHealth_NoDataYet(t *testing.T) {
 	// Use a path that doesn't exist – Run will fail immediately and nothing is
 	// stored in the cache.
-	svc := NewXpumd("/tmp/nonexistent-xpumd.sock")
+	svc := NewXpumd("/tmp/nonexistent-xpumd.sock", "critical")
 
 	_, err := svc.GetDeviceHealth("0000:00:00.0")
 	if !errors.Is(err, ErrNoHealthData) {
@@ -193,7 +193,7 @@ func TestGetDeviceHealth_CriticalUnhealthy(t *testing.T) {
 
 	sockPath := startMockServer(t, []*xpumapi.DeviceHealthResponse{resp})
 
-	svc := NewXpumd(sockPath)
+	svc := NewXpumd(sockPath, "critical")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -211,5 +211,33 @@ func TestGetDeviceHealth_CriticalUnhealthy(t *testing.T) {
 
 	if healthy {
 		t.Errorf("expected device to be unhealthy for CRITICAL severity, got healthy")
+	}
+}
+
+func TestGetDeviceHealth_WarningHealthy(t *testing.T) {
+	const bdf = "0000:05:00.0"
+
+	resp := createHealthResponse(bdf, xpumapi.SeverityLevel_SEVERITY_LEVEL_WARNING, "pcie-error")
+
+	sockPath := startMockServer(t, []*xpumapi.DeviceHealthResponse{resp})
+
+	svc := NewXpumd(sockPath, "critical")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		svc.Run(ctx)
+	}()
+
+	// Wait until health data for the device is populated.
+	healthy, err := retrieveDeviceHealth(bdf, svc)
+
+	if err != nil {
+		t.Fatalf("GetDeviceHealth returned error: %v", err)
+	}
+
+	if !healthy {
+		t.Errorf("expected device to be healthy for WARNING severity, got unhealthy")
 	}
 }
