@@ -61,6 +61,7 @@ For workloads on different KMDs, see [KMD and UMD](#kmd-and-umd).
 | -monitoring-mode | string | single | How monitoring resources are registered: single or split |
 | -health-management | - | disabled | Enable health management by requesting data from oneAPI/Level-Zero interface. Requires [GPU Level-Zero](../gpu_levelzero/) sidecar. See [health management](#health-management) |
 | -xpumd-endpoint | string | "" | Unix socket path for xpumd health service (e.g. `/run/xpumd/intelxpuinfo.sock`). When set, xpumd is used as the health data source instead of the Level-Zero sidecar. Cannot be combined with `-health-management`. Temperature limits are specified in xpumd service configuration, not with GPU plugin flags. See [xpumd health source](#xpumd-health-source) |
+| -xpumd-unhealthy-severity | string | critical | Severity level for a GPU to be considered unhealthy. Options: warning, critical or failed. |
 | -wsl | - | disabled | Adapt plugin to run in the WSL environment. Requires [GPU Level-Zero](../gpu_levelzero/) sidecar. |
 | -shared-dev-num | int | 1 | Number of containers that can share the same GPU device |
 | -allow-ids | string | "" | A list of PCI Device IDs that are allowed to be registered as resources. Default is empty (=all registered). Cannot be used together with `deny-ids`. |

@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	xpumapi "github.com/intel/xpumanager/xpumd/exporter/api/deviceinfo/v1alpha1"
+	xpumapi "github.com/intel/xpumanager/xpumd/exporter/intelxpuinfo/api/deviceinfo/v1alpha1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"k8s.io/klog/v2"
@@ -57,16 +57,34 @@ type XpumdService interface {
 }
 
 // NewXpumd creates a new XpumdService that connects to the given unix socket.
-func NewXpumd(socketPath string) XpumdService {
+func NewXpumd(socketPath, severityLimit string) XpumdService {
+	// Convert severityLimit string to xpumapi.SeverityLevel
+	// Default to critical if the provided value is invalid.
+	// Using 'warning' is not recommended as disabled or missing functionality
+	// may be detected as a warning by xpumd.
+	var severity xpumapi.SeverityLevel
+	switch severityLimit {
+	case "failed":
+		severity = xpumapi.SeverityLevel_SEVERITY_LEVEL_FAILED
+	case "critical":
+		severity = xpumapi.SeverityLevel_SEVERITY_LEVEL_CRITICAL
+	case "warning":
+		severity = xpumapi.SeverityLevel_SEVERITY_LEVEL_WARNING
+	default:
+		severity = xpumapi.SeverityLevel_SEVERITY_LEVEL_CRITICAL
+	}
+
 	return &xpumd{
-		socketPath: socketPath,
-		healths:    make(map[string]DeviceHealthy),
+		socketPath:    socketPath,
+		severityLimit: severity,
+		healths:       make(map[string]DeviceHealthy),
 	}
 }
 
 type xpumd struct {
-	healths    map[string]DeviceHealthy
-	socketPath string
+	healths       map[string]DeviceHealthy
+	socketPath    string
+	severityLimit xpumapi.SeverityLevel
 
 	sync.RWMutex
 }
@@ -181,7 +199,7 @@ func (x *xpumd) applyDeviceHealthUpdate(devices []*xpumapi.DeviceHealth) {
 		healthy := true
 
 		for _, hs := range dev.GetHealth() {
-			if hs.GetSeverity() >= xpumapi.SeverityLevel_SEVERITY_LEVEL_WARNING {
+			if hs.GetSeverity() >= x.severityLimit {
 				klog.V(5).Infof("xpumd-client: device %s health issue in domain %q: severity=%s reason=%q",
 					bdf, hs.GetName(), hs.GetSeverity(), hs.GetReason())
 
